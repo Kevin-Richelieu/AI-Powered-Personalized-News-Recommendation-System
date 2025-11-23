@@ -1,0 +1,64 @@
+{% extends 'app01/base.html' %}
+
+{% block title %}首页 - 新闻推荐系统{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center text-center">
+    <div class="col-lg-8">
+        <div class="py-5">
+            <h1 class="display-4 fw-bold text-primary mb-4">
+                <i class="fas fa-newspaper me-3"></i>新闻推荐系统
+            </h1>
+            <p class="lead mb-4">基于人工智能的个性化新闻推荐，为您量身定制感兴趣的内容</p>
+            
+            {% if not request.session.is_authenticated %}
+            <div class="mt-5">
+                <a href="{% url 'login' %}" class="btn btn-primary btn-lg me-3 px-4">
+                    <i class="fas fa-sign-in-alt me-2"></i>立即登录
+                </a>
+                <a href="{% url 'register' %}" class="btn btn-outline-primary btn-lg px-4">
+                    <i class="fas fa-user-plus me-2"></i>注册账号
+                </a>
+            </div>
+            {% else %}
+            <div class="mt-5">
+                <a href="{% url 'dashboard' %}" class="btn btn-primary btn-lg px-4">
+                    <i class="fas fa-rocket me-2"></i>开始探索
+                </a>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- 特性介绍 -->
+        <div class="row mt-5">
+            <div class="col-md-4 mb-4">
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-body">
+                        <i class="fas fa-user-circle fa-3x text-primary mb-3"></i>
+                        <h5>个性化推荐</h5>
+                        <p class="text-muted">基于您的兴趣标签，智能推荐最相关的内容</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 mb-4">
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-body">
+                        <i class="fas fa-clock fa-3x text-success mb-3"></i>
+                        <h5>实时更新</h5>
+                        <p class="text-muted">按时间顺序展示最新动态，不错过重要信息</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 mb-4">
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-body">
+                        <i class="fas fa-search fa-3x text-info mb-3"></i>
+                        <h5>智能搜索</h5>
+                        <p class="text-muted">快速找到您关心的新闻和话题</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

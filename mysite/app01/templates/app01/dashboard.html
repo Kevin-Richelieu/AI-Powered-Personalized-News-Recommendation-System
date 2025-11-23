@@ -1,0 +1,171 @@
+{% extends 'app01/base.html' %}
+
+{% block title %}个性推荐 - 新闻推荐系统{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-user-circle me-2"></i>为您推荐</h2>
+    <div>
+        <button class="btn btn-outline-primary" onclick="refreshRecommendations()">
+            <i class="fas fa-sync-alt me-1"></i>刷新推荐
+        </button>
+    </div>
+</div>
+
+<!-- 推荐内容区域 -->
+<div id="recommendation-content">
+    <div class="text-center py-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">加载中...</span>
+        </div>
+        <p class="mt-3">正在为您生成个性化推荐...</p>
+    </div>
+</div>
+
+<!-- 推荐新闻模板 -->
+<template id="news-template">
+    <div class="news-card p-4">
+        <div class="row">
+            <div class="col-9">
+                <h5 class="news-title"></h5>
+                <p class="text-muted news-summary"></p>
+                <div class="news-tags mb-2"></div>
+                <div class="d-flex align-items-center">
+                    <small class="text-muted me-3 news-date"></small>
+                    <span class="badge bg-primary me-2 relevance-score"></span>
+                    <span class="badge bg-info matched-tags"></span>
+                </div>
+            </div>
+            <div class="col-3 text-end">
+                <a href="#" class="btn btn-outline-primary btn-sm news-link" target="_blank">
+                    <i class="fas fa-external-link-alt me-1"></i>查看详情
+                </a>
+            </div>
+        </div>
+    </div>
+</template>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// 页面加载时获取推荐内容
+document.addEventListener('DOMContentLoaded', function() {
+    loadPersonalizedNews();
+});
+
+// 加载个性化新闻
+function loadPersonalizedNews() {
+    fetch('/news/api/personalized-news/')
+        .then(response => response.json())
+        .then(data => {
+            displayNews(data.news);
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            document.getElementById('recommendation-content').innerHTML = 
+                '<div class="alert alert-danger">加载失败，请稍后重试</div>';
+        });
+}
+
+// 显示新闻列表
+function displayNews(newsList) {
+    const container = document.getElementById('recommendation-content');
+    const template = document.getElementById('news-template');
+    
+    if (newsList.length === 0) {
+        container.innerHTML = '<div class="alert alert-info">暂无推荐内容</div>';
+        return;
+    }
+    
+    container.innerHTML = '';
+    
+    newsList.forEach(news => {
+        const clone = template.content.cloneNode(true);
+        
+        clone.querySelector('.news-title').textContent = news.Summary || '无标题';
+        clone.querySelector('.news-summary').textContent = news.Summary || '无摘要';
+        clone.querySelector('.news-date').textContent = '发布时间: ' + (news.FormattedDate || news.PublishDate || '未知');
+        clone.querySelector('.relevance-score').textContent = '相关度: ' + (news.RelevanceScore ? (news.RelevanceScore * 100).toFixed(0) + '%' : '0%');
+        clone.querySelector('.matched-tags').textContent = '匹配标签: ' + (news.MatchedTags || 0);
+        
+        // 修改新闻链接点击事件
+        const link = clone.querySelector('.news-link');
+        link.href = news.URL || '#';
+        link.onclick = function(e) {
+            // 先阻止默认跳转行为
+            e.preventDefault();
+            // 记录新闻ID并更新标签访问次数
+            updateTagVisits(news.NewsID, link.href);
+        };
+        
+        // 处理标签
+        const tagsContainer = clone.querySelector('.news-tags');
+        if (news.TagNames) {
+            const tags = news.TagNames.split(', ');
+            tags.forEach(tag => {
+                const badge = document.createElement('span');
+                badge.className = 'badge bg-secondary tag-badge me-1';
+                badge.textContent = tag;
+                tagsContainer.appendChild(badge);
+            });
+        }
+        
+        container.appendChild(clone);
+    });
+}
+
+// 刷新推荐
+function refreshRecommendations() {
+    const container = document.getElementById('recommendation-content');
+    container.innerHTML = `
+        <div class="text-center py-3">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">刷新中...</span>
+            </div>
+            <p class="mt-2">正在刷新推荐...</p>
+        </div>
+    `;
+    
+    setTimeout(loadPersonalizedNews, 1000);
+}
+
+// 更新标签访问次数
+function updateTagVisits(newsId, url) {
+    fetch('/news/api/update-tag-visits/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: `news_id=${encodeURIComponent(newsId)}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log('标签访问次数更新结果:', data);
+        // 无论成功与否都跳转到新闻页面
+        window.open(url, '_blank');
+    })
+    .catch(error => {
+        console.error('更新标签访问次数失败:', error);
+        // 即使失败也跳转到新闻页面
+        window.open(url, '_blank');
+    });
+}
+
+// 获取CSRF token的辅助函数
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+{% endblock %}

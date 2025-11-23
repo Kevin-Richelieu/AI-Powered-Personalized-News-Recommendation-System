@@ -1,0 +1,294 @@
+{% extends 'app01/base.html' %}
+
+{% block title %}最新动态 - 新闻推荐系统{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-stream me-2"></i>最新动态</h2>
+    <div class="btn-group" id="range-buttons">
+        <button class="btn btn-outline-primary active" data-range="all" onclick="loadTimeline('all', event)">全部</button>
+        <button class="btn btn-outline-primary" data-range="today" onclick="loadTimeline('today', event)">今日</button>
+        <button class="btn btn-outline-primary" data-range="week" onclick="loadTimeline('week', event)">本周</button>
+        <button class="btn btn-outline-primary" data-range="month" onclick="loadTimeline('month', event)">本月</button>
+    </div>
+</div>
+
+<!-- 时间线内容 -->
+<div id="timeline-content">
+    <div class="text-center py-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">加载中...</span>
+        </div>
+        <p class="mt-3">正在加载最新动态...</p>
+    </div>
+</div>
+{% endblock %}
+
+<!-- timeline.html 修改部分 -->
+{% block scripts %}
+<script>
+// 页面加载时获取时序新闻
+document.addEventListener('DOMContentLoaded', function() {
+    loadTimeline('all');
+});
+
+// 当前页面状态
+let currentRange = 'all';
+let currentPage = 1;
+
+// 加载时序新闻
+function loadTimeline(range, event = null) {
+    currentRange = range;
+    currentPage = 1; // 切换范围时重置到第一页
+    
+    // 更新按钮状态
+    document.querySelectorAll('#range-buttons .btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    
+    // 激活当前按钮
+    const activeButton = document.querySelector(`#range-buttons .btn[data-range="${range}"]`);
+    if (activeButton) {
+        activeButton.classList.add('active');
+    }
+    
+    // 显示加载状态
+    const container = document.getElementById('timeline-content');
+    container.innerHTML = `
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">加载中...</span>
+            </div>
+            <p class="mt-3">正在加载新闻...</p>
+        </div>
+    `;
+    
+    // 构建API URL
+    const apiUrl = `/news/api/timeline-news/?range=${range}&page=${currentPage}&limit=15`;
+    console.log('Fetching from:', apiUrl); // 调试信息
+    
+    fetch(apiUrl)
+        .then(response => {
+            console.log('Response status:', response.status); // 调试信息
+            if (!response.ok) {
+                throw new Error(`网络响应不正常: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('API response data:', data); // 调试信息
+            if (data.status === 'success') {
+                displayTimelineNews(data.news, data.pagination);
+            } else {
+                throw new Error(data.message || 'API返回错误状态');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            document.getElementById('timeline-content').innerHTML = 
+                `<div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    加载失败: ${error.message}
+                    <br><small>请检查控制台获取详细信息</small>
+                </div>`;
+        });
+}
+
+// 加载特定页面的新闻
+function loadPage(page) {
+    currentPage = page;
+    loadTimeline(currentRange);
+}
+
+// 显示时序新闻
+function displayTimelineNews(newsList, pagination = null) {
+    const container = document.getElementById('timeline-content');
+    
+    if (!newsList || newsList.length === 0) {
+        container.innerHTML = `
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle me-2"></i>
+                当前筛选条件下暂无新闻数据
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '';
+    
+    // 添加分页信息（如果有）
+    if (pagination) {
+        html += `
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <span class="text-muted">共 ${pagination.total_count} 条新闻</span>
+            </div>
+            <div class="btn-group">
+                <button class="btn btn-outline-secondary btn-sm ${!pagination.has_prev ? 'disabled' : ''}" 
+                        onclick="loadPage(${currentPage - 1})" 
+                        ${!pagination.has_prev ? 'disabled' : ''}>
+                    <i class="fas fa-chevron-left"></i> 上一页
+                </button>
+                <span class="btn btn-outline-secondary btn-sm disabled">
+                    第 ${currentPage} / ${pagination.total_pages} 页
+                </span>
+                <button class="btn btn-outline-secondary btn-sm ${!pagination.has_next ? 'disabled' : ''}" 
+                        onclick="loadPage(${currentPage + 1})" 
+                        ${!pagination.has_next ? 'disabled' : ''}>
+                    下一页 <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+        </div>
+        `;
+    }
+    
+    // 生成新闻列表
+    newsList.forEach(news => {
+        const summary = news.Summary || '暂无摘要';
+        const publishDate = news.FormattedDate || news.PublishDate || '未知时间';
+        const tagNames = news.TagNames || '';
+        const url = news.URL || '#';
+        const tagCount = news.TagCount || 0;
+        const newsId = news.NewsID;
+        
+        html += `
+        <div class="news-card p-4 mb-4">
+            <div class="row">
+                <div class="col-md-9">
+                    <h5 class="news-title mb-3">${summary}</h5>
+                    
+                    ${tagNames ? `
+                    <div class="mb-3">
+                        <strong>标签:</strong>
+                        ${tagNames.split(', ').map(tag => 
+                            `<span class="badge bg-secondary tag-badge me-1 mb-1">${tag}</span>`
+                        ).join('')}
+                    </div>
+                    ` : ''}
+                    
+                    <div class="d-flex align-items-center text-muted">
+                        <small>
+                            <i class="fas fa-calendar me-1"></i>${publishDate}
+                        </small>
+                        ${tagCount > 0 ? `
+                        <small class="ms-3">
+                            <i class="fas fa-tags me-1"></i>${tagCount} 个标签
+                        </small>
+                        ` : ''}
+                    </div>
+                </div>
+                <div class="col-md-3 text-md-end">
+                    <a href="${url}" class="btn btn-outline-primary" target="_blank"
+                       onclick="return handleNewsClick(${newsId}, this.href)">
+                        <i class="fas fa-external-link-alt me-1"></i>阅读全文
+                    </a>
+                </div>
+            </div>
+        </div>
+        `;
+    });
+    
+    // 添加底部分页（如果有多个页面）
+    if (pagination && pagination.total_pages > 1) {
+        html += `
+        <div class="d-flex justify-content-center mt-4">
+            <nav>
+                <ul class="pagination">
+                    <li class="page-item ${!pagination.has_prev ? 'disabled' : ''}">
+                        <a class="page-link" href="javascript:void(0)" 
+                           onclick="loadPage(${currentPage - 1})" 
+                           ${!pagination.has_prev ? 'tabindex="-1" aria-disabled="true"' : ''}>
+                            <i class="fas fa-chevron-left"></i> 上一页
+                        </a>
+                    </li>
+                    
+                    ${generatePaginationItems(pagination.total_pages, currentPage)}
+                    
+                    <li class="page-item ${!pagination.has_next ? 'disabled' : ''}">
+                        <a class="page-link" href="javascript:void(0)" 
+                           onclick="loadPage(${currentPage + 1})" 
+                           ${!pagination.has_next ? 'tabindex="-1" aria-disabled="true"' : ''}>
+                            下一页 <i class="fas fa-chevron-right"></i>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+        `;
+    }
+    
+    container.innerHTML = html;
+}
+
+// 生成分页项目
+function generatePaginationItems(totalPages, currentPage) {
+    let items = '';
+    const maxVisiblePages = 5;
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+    
+    // 调整起始页面，确保显示maxVisiblePages个页面
+    if (endPage - startPage + 1 < maxVisiblePages) {
+        startPage = Math.max(1, endPage - maxVisiblePages + 1);
+    }
+    
+    // 生成页码按钮
+    for (let i = startPage; i <= endPage; i++) {
+        items += `
+        <li class="page-item ${i === currentPage ? 'active' : ''}">
+            <a class="page-link" href="javascript:void(0)" onclick="loadPage(${i})">
+                ${i}
+            </a>
+        </li>
+        `;
+    }
+    
+    return items;
+}
+
+// 处理新闻点击事件，更新标签访问次数
+function handleNewsClick(newsId, url) {
+    // 阻止默认跳转
+    event.preventDefault();
+    
+    // 发送更新请求
+    fetch('/news/api/update-tag-visits/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: `news_id=${encodeURIComponent(newsId)}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log('标签访问次数更新结果:', data);
+        // 更新成功后跳转
+        window.open(url, '_blank');
+    })
+    .catch(error => {
+        console.error('更新标签访问次数失败:', error);
+        // 即使失败也跳转到新闻页面
+        window.open(url, '_blank');
+    });
+    
+    return false;
+}
+
+// 获取CSRF token的辅助函数
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+{% endblock %}
